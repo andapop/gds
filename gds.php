@@ -20,6 +20,8 @@ function gds_init() {
 		parent_id int(20) UNSIGNED DEFAULT '0'  NOT NULL,
 		passcode varchar(20) DEFAULT '' NOT NULL,
 		active bool DEFAULT '1' NOT NULL,
+		exported bool DEFAULT '0' NOT NULL,
+		date_exported datetime DEFAULT '0000-00-00 00:00:00' NOT NULL,
 		PRIMARY KEY (ID),
 		KEY leader_id (leader_id),
  		KEY corporate_id (corporate_id),
@@ -52,8 +54,19 @@ function gds_init() {
 	require_once dirname( __FILE__ ) . '/admin/wristbands.php';
 	require_once dirname( __FILE__ ) . '/admin/wristbands_list_table.php';
 
-	wp_enqueue_style( 'gds_style',  plugin_dir_url( __FILE__ ) . 'gds.css' , array(), '1.0' );
-	wp_enqueue_script( 'gds_script',  plugin_dir_url( __FILE__ ) . '/admin/js/confirm_delete.js' , '', '', true );
+	
+	add_action( 'admin_init', 'my_enqueues' );
+
+	function my_enqueues() {
+		
+		$dir = plugin_dir_url( __FILE__ );
+
+		wp_enqueue_style( 'gds_style',  $dir .'gds.css' , '', '1.0' );
+		wp_enqueue_script( 'gds_confirm_delete',  $dir . '/admin/js/confirm_delete.js' , array('jquery'), '0.1', true );
+		wp_enqueue_script( 'gds_show_select_ids',  $dir . '/admin/js/show_corporate_id.js' ,array('jquery'), '0.1', true );
+	}
+
+	
 
 }
 

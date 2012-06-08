@@ -81,6 +81,21 @@ function gds_update_chain_corporate($chain_id, $corporate_id) {
 			);
 }
 
+function gds_update_chain($args) {
+	global $wpdb;
+
+	extract($args);
+
+	$t_name = $wpdb->prefix . "chains" ;
+	$wpdb->update($t_name, 
+			array(  'corporate_id' => $corporate_id,
+                    'parent_id' => $parent_id,
+                    'active' => $active
+			), 
+			array( 'ID' => $ID )			
+		);
+}
+
 // used when a user starts a chain 
 // returns true if successfull, error message if not
 function gds_start_chain( $args ) {
@@ -190,6 +205,21 @@ function gds_set_wristband_status($id, $status) {
 
 }
 
+function gds_set_chain_active_status($id, $status) {
+	global $wpdb;
+
+	$t_name = $wpdb->prefix . "chains" ;
+	$upadted = $wpdb->update( $t_name,
+								array(
+									'active'=> $status
+									),
+								array( 'ID' => $id
+									)
+			);
+
+}
+
+
 function gds_delete_wristband($id) {
 	global $wpdb;
 	var_dump($id);
@@ -208,5 +238,14 @@ function gds_get_wristband_for_id($id) {
 	return $result;
 
 }
+
+function gds_get_chain_for_id($id) {
+	global $wpdb;	
+	$result = $wpdb->get_row( "SELECT * FROM $wpdb->chains WHERE ID = $id "	);
+
+	return $result;
+
+}
+
 
 ?>

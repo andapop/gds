@@ -5,19 +5,17 @@ add_action('admin_menu', 'gds_wristbands_menu');
 function gds_wristbands_menu() {
 	add_menu_page('Wristbands', 'Wristbands', 'administrator', 'wristbands', 'gds_wristbands' , '', '28' ); 
 }
-function gds_prepare_status($status){
-    if('approved' == $status) {
-        $status = true;
-    }elseif ('pending' == $status) {
-        $status = false;
-    }
-    return $status;
-}
 
-function gds_wristbands(){
-   
-    //row action was performed    
+
+add_action( 'load-toplevel_page_wristbands', 'gds_wristbands_onload' );
+
+function gds_wristbands_onload(){
+
+    $pagenum = isset($_REQUEST['_page']) ? $_REQUEST['_page'] : 0 ;
+    
+    // check for row action activate/ delete / or submission from edit form   
     $action = isset($_REQUEST['wbaction']) ? $_REQUEST['wbaction'] : 0 ; 
+    $approved_wristband = $unapproved_wristband = $deleted_wristband = $do_edit = $updated_wristband = 0;
 
     if($action) { 
 
@@ -32,12 +30,11 @@ function gds_wristbands(){
         
         if(! check_admin_referer($nonce_action)){
             exit;
-        }
+        }        
 
-        $approved_wristband = $unapproved_wristband = $deleted_wristband = $do_edit = $updated_wristband = 0;
-
-        $redirect_to = remove_query_arg( array( 'approved_wristband', 'unapproved_wristband', 'deleted_wristband', '$updated_wristband', 'approved', 'unapproved', 'deleted', 'ids', 'wbaction','w', '_wpnonce'), wp_get_referer() );
-        $redirect_to = add_query_arg( 'paged', $pagenum, $redirect_to ); 
+        $redirect_to = remove_query_arg( array( 'approved_wristband', 'unapproved_wristband', 'deleted_wristband', '$updated_wristband', 'approved', 'unapproved', 'deleted', 'ids', 'wbaction','w', '_wpnonce', 'edit_wbaction'), wp_get_referer() );
+        if($pagenum > 1)
+            $redirect_to = add_query_arg( 'paged', $pagenum, $redirect_to );
            
 
             switch ($action) {
@@ -65,9 +62,6 @@ function gds_wristbands(){
                     gds_update_wristband($args);                                 
                     $updated_wristband = $wristband_id;
                     break;
-                case 'editwristband':
-                    $do_edit++;            
-                    break;
             }
 
         if ( $approved_wristband )
@@ -80,17 +74,84 @@ function gds_wristbands(){
             $redirect_to = add_query_arg( 'updated_wristband', $updated_wristband, $redirect_to );
         }
 
+        wp_safe_redirect( $redirect_to );
+        exit;
        
-        if(!$do_edit){
-            wp_safe_redirect( $redirect_to );
-            exit;
-        }
     } 
 
-      
+    // check for bulk  actions
+        
+    $doaction = isset($_REQUEST['action']) ? $_REQUEST['action'] : 0 ;
 
-    //if we have to edit the wristband get the edit form, else show the list table
-    if($do_edit) {
+    if ( $doaction ) {            
+        check_admin_referer('bulk-wristbands');
+
+        if ( isset( $_REQUEST['ids'] )) {
+            $wristband_ids = array_map( 'absint', $_REQUEST['ids']  );
+        }elseif ( wp_get_referer() ) {
+            $redirect_to = remove_query_arg( array( 'deleted', 'approved', 'unapproved','delete-ids', 'ids','approved_wristband', 'unapproved_wristband', 'deleted_wristband', 'updated_wristband'), wp_get_referer() );
+            wp_safe_redirect($redirect_to);
+            exit;
+        }
+
+        $approved = $unapproved = $deleted = 0;
+
+        $redirect_to = remove_query_arg( array( 'deleted', 'approved', 'unapproved','delete-ids', 'ids','approved_wristband', 'unapproved_wristband', 'deleted_wristband', 'updated_wristband'), wp_get_referer() );
+        if($pagenum > 1)
+            $redirect_to = add_query_arg( 'paged', $pagenum, $redirect_to );
+        
+        foreach ( $wristband_ids as $wristband_id ) { 
+            // Check the permissions on each
+           // if ( !current_user_can( 'edit_wristband', $wristband_id ) )
+            //    continue;
+            switch ( $doaction ) {
+                case 'approve' :
+                    gds_set_wristband_status( $wristband_id, true );
+                    $approved++;
+                    break;
+                case 'unapprove' :
+                    gds_set_wristband_status( $wristband_id, false );
+                    $unapproved++;
+                    break;
+                case 'delete' :
+                    gds_delete_wristband( $wristband_id );
+                    $deleted++;
+                    break;
+            }
+            
+        }
+
+        if ( $approved )
+            $redirect_to = add_query_arg( 'approved', $approved, $redirect_to );
+        if ( $unapproved )
+            $redirect_to = add_query_arg( 'unapproved', $unapproved, $redirect_to );
+        if ( $deleted )
+            $redirect_to = add_query_arg( 'deleted', $deleted, $redirect_to );
+        
+
+        wp_safe_redirect( $redirect_to );
+        exit;
+        
+    } 
+
+    elseif ( ! empty( $_GET['_wp_http_referer'] ) ) {
+         wp_redirect( remove_query_arg( array( '_wp_http_referer', '_wpnonce' ), stripslashes( $_SERVER['REQUEST_URI'] ) ) );
+         exit;
+    }
+}
+
+function gds_wristbands(){     
+    //edit row action was performed    
+    $edit_action = isset($_REQUEST['edit_wbaction']) ? $_REQUEST['edit_wbaction'] : 0 ;
+    
+     //if we have to edit the wristband get the edit form
+    if($edit_action) { 
+        $wristband_id = isset($_REQUEST['w']) ? (int)$_REQUEST['w'] : 0 ;  
+        $nonce_action ='editwristband_'.$wristband_id;        
+        if(! check_admin_referer($nonce_action)){
+            echo __('You are not allowed');
+            exit;
+           }
        gds_show_edit_wristband_form($wristband_id);
     } else { 
         gds_show_wristband_list();
@@ -175,7 +236,7 @@ function  gds_show_wristband_list() {
         <form id="wristnbads-form" action="" method="get">
 
             <?php
-            $wristband_status = $wpdb->escape( $_REQUEST['wristband_status'] );
+            $wristband_status = isset( $_REQUEST['wristband_status'] ) ? $_REQUEST['wristband_status'] : 'all';
              $wristbandListTable->search_box( __( 'Search Wristbands' ), 'wristband' ); ?>
 
             <input type="hidden" name="wristband_status" value="<?php echo esc_attr($wristband_status); ?>" />
@@ -205,17 +266,12 @@ function gds_show_edit_wristband_form($wristband_id ){
     global $wpdb;
 
     $wristband = gds_get_wristband_for_id($wristband_id);
-    var_dump($wristband);
     $user = get_user_by('id', $wristband->user_id);
     ?>
-    
-            
-        
-        
 
     <form name="post" action="admin.php?page=wristbands" method="post" id="post">
-    <?php wp_nonce_field('updatewristband_' . $wristband->ID) ?>
-    <input type="hidden" name="wbaction" value='updatewristband' />
+        <?php wp_nonce_field('updatewristband_' . $wristband->ID) ?>
+        <input type="hidden" name="wbaction" value='updatewristband' />
 
         <div class="wrap">
             <div id="icon-users" class="icon32"><br/></div>
@@ -309,6 +365,15 @@ function gds_show_edit_wristband_form($wristband_id ){
     </form>
         
  <?php
+}
+
+function gds_prepare_status($status){
+    if('approved' == $status) {
+        $status = true;
+    }elseif ('pending' == $status) {
+        $status = false;
+    }
+    return $status;
 }
 
 ?>
