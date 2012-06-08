@@ -1,17 +1,19 @@
-.wristbands .approve {
-	display: inline; 
-}
-
 .wristbands .row-actions {
 	padding-bottom: 10px;
 }
 .fixed .column-wb_number , .fixed.wristbands .column-approved{
 	width: 8%;
 }
-
 .fixed.wristbands .column-user{
 	width: 10%;
 }
+
 .fixed.wristbands .column-chain_id {
 	width: 5%;
+}
+.column-stories h4 {
+	margin-top: 0;
+}
+.wristband.unapproved {
+background-color: lightYellow;
 }

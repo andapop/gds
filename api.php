@@ -1,12 +1,11 @@
 <?php 
 // used in admin to create the chains
-function gds_add_chain($leader_id = false){
+function gds_add_chain($corporate_id = false){
 
 		global $wpdb;
 
-		if(!$leader_id) {
-			$current_user = wp_get_current_user();
-			$leader_id = $current_user->ID;
+		if(!$corporate_id) {
+			$corporate_id = 0;
 		}
 
 		$date_created = current_time('mysql');
@@ -16,7 +15,7 @@ function gds_add_chain($leader_id = false){
 		$wpdb->insert( $t_name ,
 			array(
 				'date_created' => $date_created,
-				'leader_id' => $leader_id,
+				'corporate_id' => $corporate_id,
 				'passcode' => $random_passcode
 				)
 			);
@@ -67,12 +66,12 @@ function gds_add_wristband($args){
 
 }
 
-function gds_update_chain_leader($chain_id, $leader_id) {
+function gds_update_chain_corporate($chain_id, $corporate_id) {
 		global $wpdb;
 		$t_name = $wpdb->prefix . "chains" ;
 		$wpdb->update($t_name, 
 				array( 
-					'leader_id' => $leader_id
+					'corporate_id' => $corporate_id
 				), 
 				array( 'ID' => $chain_id ), 
 				array( 
@@ -88,7 +87,6 @@ function gds_start_chain( $args ) {
 		
 		global $wpdb;
 		extract($args);
-		var_dump($chain_id . "  " .$passcode );
 
 		$result = $wpdb->get_row( $wpdb->prepare( "	SELECT *
 													FROM $wpdb->chains 
@@ -143,48 +141,72 @@ function gds_start_chain( $args ) {
 			return true;
 		}
 		else { 	//chain with these details does not exist
-			$error = "Combination id/passcode is incorrect. Please Check them an try again";
+			$error = "Combination id/passcode is incorrect. Please check them and try again";
 
 			return $error;
 		}
 
 }
 
-function gds_edit_wristband($args){
+function gds_update_wristband($args){
 	global $wpdb;
 	extract($args);
 	
 	$t_name = $wpdb->prefix . "wristbands" ;
+	
+	$wpdb->update( $t_name,
+					array(
+						'story1' => $story1,
+						'story2' => $story2,
+						'city' => $city,
+						'state' => $state,
+						'country' => $country,
+						'approved' => $approved
+						),
+					array( 'ID' => $ID 
+						)
+				);
+
+}
+
+function gds_add_n_chains($number, $corporate_id = false ) {
+	while ($number > 0 ):
+		gds_add_chain($corporate_id);
+		$number--; 
+	endwhile;
+}
+
+function gds_set_wristband_status($id, $status) {
+	global $wpdb;
+
+	$t_name = $wpdb->prefix . "wristbands" ;
 	$upadted = $wpdb->update( $t_name,
 								array(
-									'story1' => $story1,
-									'story2' => $story2,
-									'city' => $city,
-									'state' => $state,
-									'country' => $country
+									'approved'=> $status
 									),
-								array( 'chain_id' => $chain_id , 
-										'wb_number' => $wb_number 
-									), 
-								array(
-									'%s',
-									'%s',
-									'%s',
-									'%s',
-									'%s'
-									),
-								array(
-									'%d',
-									'%d'
+								array( 'ID' => $id
 									)
 			);
 
 }
 
-function gds_add_n_chains($number, $leader_id = false ) {
-	while ($number > 0 ):
-		gds_add_chain($leader_id);
-		$number--; 
-	endwhile;
+function gds_delete_wristband($id) {
+	global $wpdb;
+	var_dump($id);
+
+	$delete= $wpdb->query( $wpdb->prepare( "DELETE FROM $wpdb->wristbands
+		 									WHERE ID = %d",
+	        								$id ));
+	var_dump($delete);
+
 }
+
+function gds_get_wristband_for_id($id) {
+	global $wpdb;	
+	$result = $wpdb->get_row( "SELECT * FROM $wpdb->wristbands WHERE ID = $id "	);
+
+	return $result;
+
+}
+
 ?>

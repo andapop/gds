@@ -36,25 +36,28 @@ class GDS_Wristband_List_Table extends WP_List_Table {
      
     }
     
+    function ajax_user_can() {
+       return current_user_can('edit_posts');
+    }
     
     /** ************************************************************************
      * Recomended. Method called when the parent class can't find a method
      * specifically build for a given column.
 
-     * @param array $item A singular item (one full row's worth of data)
+     * @param array $wristband A singular item (one full row's worth of data)
      * @param array $column_name The name/slug of the column to be processed
      * @return string Text or HTML to be placed inside the column <td>
      **************************************************************************/
-    function column_default($item, $column_name){
+    function column_default($wristband, $column_name){
         switch($column_name){
             case 'wb_number':
             case 'chain_id':
             case 'user':
             case 'stories':
             case 'approved':
-                return $item->$column_name;
+                return $wristband->$column_name;
             default:
-                return print_r($item,true); //Show the whole array for troubleshooting purposes
+                return print_r($wristband,true); //Show the whole array for troubleshooting purposes
         }
     }
     
@@ -64,47 +67,96 @@ class GDS_Wristband_List_Table extends WP_List_Table {
      * is rendered in any column with a speciffic name/slug
 
      * @see WP_List_Table::::single_row_columns()
-     * @param array $item A singular item (one full row's worth of data)
+     * @param array $wristband A singular item (one full row's worth of data)
      * @return string Text to be placed inside the column <td> (both stories)
      **************************************************************************/
-    function column_stories($item){
-        
-        //Build row actions
-        $actions = array(
-            'approve'    => sprintf('<a href="?page=%s&action=%s&wristband=%s">Approve</a>',$_REQUEST['page'],'approve',$item->ID),
-            'delete'    => sprintf('<a href="?page=%s&action=%s&wristband=%s">Delete</a>',$_REQUEST['page'],'delete',$item->ID),
-            'edit'    => sprintf('<a href="?page=%s&action=%s&wristband=%s">Edit</a>',$_REQUEST['page'],'edit',$item->ID)
+    function column_stories($wristband){
+        global $wristband_status;
+        $the_wristband_status = $wristband->approved; // yes/no
+
+        if ( current_user_can('edit_posts')) {
+            $url = "admin.php?page=wristbands&w=$wristband->ID";
+
+            $approve_url = esc_url( wp_nonce_url(  $url ."&wbaction=approvewristband", "approvewristband_$wristband->ID" ) );
+            $unapprove_url = esc_url( wp_nonce_url(  $url ."&wbaction=unapprovewristband", "unapprovewristband_$wristband->ID" ) );
+            $edit_url = esc_url( wp_nonce_url(  $url ."&wbaction=editwristband", "editwristband_$wristband->ID" ) );
+            $delete_url = esc_url( wp_nonce_url(  $url ."&wbaction=deletewristband", "deletewristband_$wristband->ID" ) );
+        }
+
+        printf(__('<h4>Story 1</h4><p>%1$s</p><h4>Sory 2</h4><p>%2$s</p>'),
+            /*$1%s*/ $wristband->story1,
+            /*$2%s*/ $wristband->story2
         );
         
-        //Return the Sories contents
-        return sprintf('<h4>Story 1</h4><p>%1$s</p><h4>Sory 2</h4><p>%2$s</p>%3$s',
-            /*$1%s*/ $item->story1,
-            /*$2%s*/ $item->story2,
-            /*$3%s*/ $this->row_actions($actions)
-        );
+       if (current_user_can('edit_posts')) {
+            // preorder it: Approve | Edit | Delete
+            $actions = array(
+                'approve' => '', 'unapprove' => '',
+                'edit' => '',
+                'delete' => ''
+            );
+
+            if ( $wristband_status && 'all' != $wristband_status ) { // not looking at all comments
+                if ( 'approved' == $wristband_status )
+                    $actions['unapprove'] = "<a href='$unapprove_url' title='" . esc_attr__( 'Unapprove this wristband' ) . "'>" . __( 'Unapprove' ) . '</a>';
+                else if ( 'unapproved' == $wristband_status )
+                    $actions['approve'] = "<a href='$approve_url' title='" . esc_attr__( 'Approve this wristband' ) . "'>" . __( 'Approve' ) . '</a>';
+            } else {
+                $actions['approve'] = "<a href='$approve_url' title='" . esc_attr__( 'Approve this wristband' ) . "'>" . __( 'Approve' ) . '</a>';
+                $actions['unapprove'] = "<a href='$unapprove_url' title='" . esc_attr__( 'Unapprove this wristband' ) . "'>" . __( 'Unapprove' ) . '</a>';
+            }
+
+            $actions['edit'] = "<a href='$edit_url' >" . __( 'Edit' ) . '</a>';
+            $actions['delete'] = "<a href='$delete_url'>" . __( 'Delete' ) . '</a>';
+
+            $actions = apply_filters( 'wristband_row_actions', array_filter( $actions ), $wristband );
+
+            $i = 0;
+            echo '<div class="row-actions">';
+            foreach ( $actions as $action => $link ) {
+                ++$i;
+                ( ( ( 'approve' == $action || 'unapprove' == $action ) && 2 === $i ) || 1 === $i ) ? $sep = '' : $sep = ' | ';
+
+
+                echo "<span class='$action'>$sep$link</span>";
+            }
+            echo '</div>';
+        }
+
+
+        
     }
 
-    function column_wb_number($item){
+    function column_wb_number($wristband){
         //Return the Wristband # and id
         return sprintf('%1$s<span style="color:silver"> (id: %2$s)</span>',
-            /*$1%s*/ $item->wb_number,
-            /*$2%s*/ $item->ID
+            /*$1%s*/ $wristband->wb_number,
+            /*$2%s*/ $wristband->ID
         );
     }    
 
-    function column_user($item){
+    function column_user($wristband){
 
         global $wpdb;
-        $user = get_user_by('id', $item->user_id);
+        $user = get_user_by('id', $wristband->user_id);
 
         //Return the Wristband # and id
         return sprintf('%1$s <span style="color:silver">(id: %2$s)</span><p class="location"><span style="color:silver">From: </span><br />%3$s, %4$s <br /> %5$s</p>',
             /*$1%s*/ $user->user_nicename,
-            /*$2%s*/ $item->user_id,
-            /*$3%s*/ $item->city, 
-            /*$4%s*/ $item->state,
-            /*$5%s*/ $item->country
+            /*$2%s*/ $wristband->user_id,
+            /*$3%s*/ $wristband->city, 
+            /*$4%s*/ $wristband->state,
+            /*$5%s*/ $wristband->country
         );
+    }    
+
+    function column_approved($wristband){
+        if($wristband->approved) {
+            return 'yes';
+        } else {
+            return 'no';
+        }
+
     }    
     /** ************************************************************************
      * REQUIRED if displaying checkboxes or using bulk actions! The 'cb' column
@@ -112,14 +164,13 @@ class GDS_Wristband_List_Table extends WP_List_Table {
      * have it's own method.
      * 
      * @see WP_List_Table::::single_row_columns()
-     * @param array $item A singular item (one full row's worth of data)
+     * @param array $wristband A singular item (one full row's worth of data)
      * @return string Text to be placed inside the column <td>
      **************************************************************************/
-    function column_cb($item){
+    function column_cb($wristband){
         return sprintf(
-            '<input type="checkbox" name="%1$s[]" value="%2$s" />',
-            /*$1%s*/ $this->_args['singular'],  //Let's simply repurpose the table's singular label
-            /*$2%s*/ $item->ID               //The value of the checkbox should be the record's id
+            '<input type="checkbox" name="ids[]" value="%1$s" />',
+            /*$1%s*/ $wristband->ID               //The value of the checkbox should be the record's id
         );
     }
     
@@ -155,16 +206,44 @@ class GDS_Wristband_List_Table extends WP_List_Table {
     }
    
     
+
+    /** ************************************************************************
+     * Optional. Content of a single row. 
+     **************************************************************************/
+
+    function single_row( $an_item ) {
+        global $wristband;
+
+        $wristband = $an_item;
+        if($wristband->approved){
+            $the_wristband_class = 'wristband approved';
+        } else {
+             $the_wristband_class = 'wristband unapproved';
+        }
+        
+
+        echo "<tr id='wristband-$wristband->ID' class='$the_wristband_class'>";
+        echo $this->single_row_columns( $wristband );
+        echo "</tr>\n";
+    }
+
+
     /** ************************************************************************
      * Optional. Define bulk actions.
      * 
      * @return array An associative array containing all the bulk actions: 'slugs'=>'Visible Titles'
      **************************************************************************/
     function get_bulk_actions() {
-        $actions = array(
-            'delete'    => 'Delete',
-            'approve' => 'Approve/Unapprove'
-        );
+
+        global $wristband_status;
+
+        $actions = array();
+        if ( in_array( $wristband_status, array( 'all', 'approved' ) ) )
+            $actions['unapprove'] = __( 'Unapprove' );
+        if ( in_array( $wristband_status, array( 'all', 'unapproved' ) ) )
+            $actions['approve'] = __( 'Approve' );
+        $actions['delete'] = __( 'Delete' );
+        
         return $actions;
     }
     
@@ -174,17 +253,119 @@ class GDS_Wristband_List_Table extends WP_List_Table {
      * 
      * @see $this->prepare_items()
      **************************************************************************/
-    function process_bulk_action() {
+     function process_bulk_action() {
+        $pagenum = $this->get_pagenum();
+        $doaction = $this->current_action();
+        if ( $doaction ) {
+            
+        check_admin_referer('bulk-wristbands');
+
+        if ( isset( $_REQUEST['ids'] )) {
+            $wristband_ids = array_map( 'absint', $_REQUEST['ids']  );
+        }elseif ( wp_get_referer() ) {
+            wp_safe_redirect( wp_get_referer() );
+            exit;
+        }
+
+        $approved = $unapproved = $deleted = $try_deleted = 0;
+
+        $redirect_to = remove_query_arg( array( 'deleted', 'approved', 'unapproved','delete-ids', 'ids','approved_wristband', 'unapproved_wristband', 'deleted_wristband', 'updated_wristband'), wp_get_referer() );
+        $redirect_to = add_query_arg( 'paged', $pagenum, $redirect_to );
         
-        //Detect when a bulk action is being triggered...
-        if( 'delete'===$this->current_action() ) {
-            wp_die('Will Delete wristbands!');
+        foreach ( $wristband_ids as $wristband_id ) { 
+            // Check the permissions on each
+           // if ( !current_user_can( 'edit_comment', $comment_id ) )
+            //    continue;
+            switch ( $doaction ) {
+                case 'approve' :
+                    gds_set_wristband_status( $wristband_id, true );
+                    $approved++;
+                    break;
+                case 'unapprove' :
+                    gds_set_wristband_status( $wristband_id, false );
+                    $unapproved++;
+                    break;
+                case 'delete' :
+                    gds_delete_wristband( $wristband_id );
+                    $deleted++;
+                    break;
+            }
+            
         }
-        if( 'approve'===$this->current_action() ) {
-            wp_die('Will Approve wristbands!');
-        }
+
+        if ( $approved )
+            $redirect_to = add_query_arg( 'approved', $approved, $redirect_to );
+        if ( $unapproved )
+            $redirect_to = add_query_arg( 'unapproved', $unapproved, $redirect_to );
+        if ( $deleted )
+            $redirect_to = add_query_arg( 'deleted', $deleted, $redirect_to );
+        
+
+        wp_safe_redirect( $redirect_to );
+        exit;
+        
+    } elseif ( ! empty( $_GET['_wp_http_referer'] ) ) {
+         wp_redirect( remove_query_arg( array( '_wp_http_referer', '_wpnonce' ), stripslashes( $_SERVER['REQUEST_URI'] ) ) );
+         exit;
+    }
+
     }
     
+
+    /** ************************************************************************
+     * Optional. Get views
+     **************************************************************************/
+
+    function get_views() {
+        global $wristband_status;        
+
+        $status_links = array();
+        $stati = array(
+                'all' => _nx_noop('All', 'All', 'wristnabds'), // singular not used
+                'unapproved' => _n_noop('Pending <span class="count">(<span class="pending-count">%s</span>)</span>', 'Pending <span class="count">(<span class="pending-count">%s</span>)</span>'),
+                'approved' =>_nx_noop('Approved', 'Approved', 'wristnabds')
+            );
+
+        $link = 'admin.php?page=wristbands';
+        foreach ( $stati as $status => $label ) {
+            $class = ( $status == $wristband_status ) ? ' class="current"' : '';
+
+            $link = add_query_arg( 'wristband_status', $status, $link );
+           
+            $status_links[$status] = "<a href='$link'$class>" . sprintf(
+                translate_nooped_plural( $label, $this->get_num_wristbands($status) ),
+                number_format_i18n( $this->get_num_wristbands($status) )
+            ) . '</a>';
+        }
+
+        $status_links = apply_filters( 'comment_status_links', $status_links );
+        return $status_links;
+    }
+
+    function get_num_wristbands($status = 'all') {
+        global $wpdb;
+
+        switch ($status) {
+            case 'unapproved' : 
+                    $approved = false;
+                    break;
+            case 'approved' : 
+            default : $approved = true; break;
+        }
+
+    
+        $num_wristbands = intval($wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM $wpdb->wristbands WHERE approved = %s" , $approved ) )); 
+
+        return $num_wristbands;
+    }
+
+
+    function get_per_page( $wristband_status = 'all' ) {
+        $wristbands_per_page = 20;
+        $wristbands_per_page = apply_filters( 'per_page', $wristbands_per_page, $wristband_status );
+        return $wristbands_per_page;
+    }
+
     
     /** ************************************************************************
      * REQUIRED! Prepare your data for display.
@@ -198,12 +379,29 @@ class GDS_Wristband_List_Table extends WP_List_Table {
      **************************************************************************/
     function prepare_items() {
 
-        global $wpdb;
+        global $wpdb, $wristband_status, $search ;
+
+        $wristband_status = (isset( $_REQUEST['wristband_status'] )) ? $_REQUEST['wristband_status'] : 'all';
+        if ( !in_array( $wristband_status, array( 'all', 'unapproved', 'approved' ) ) )
+            $wristband_status = 'all';
+
+        $search = ( isset( $_REQUEST['s'] ) ) ? $_REQUEST['s'] : '';
+
+        //$doing_ajax = defined( 'DOING_AJAX' ) && DOING_AJAX;
+
+        $wristbands_per_page = $this->get_per_page($wristband_status);
+
+        $status_map = array(
+            'unapproved' => false, //unapproved wristbands
+            'approved' => true  //approved wristbands
+        );
 
         /**
-         * First, lets decide how many records per page to show
+         * REQUIRED for pagination. 
          */
-        $per_page = 20;
+        $current_page = $this->get_pagenum();
+        $total_items = intval ($wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM $wpdb->wristbands ")) );         
+        //$total_pages = ceil($total_items/$wristbands_per_page);       
         
         
         /**
@@ -225,12 +423,6 @@ class GDS_Wristband_List_Table extends WP_List_Table {
          */
         $this->process_bulk_action();
         
-        /**
-         * REQUIRED for pagination. 
-         */
-        $current_page = $this->get_pagenum();
-        $total_items = intval ($wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM $wpdb->wristbands ")) );         
-        $total_pages = ceil($total_items/$per_page);
         
         
         /**
@@ -239,19 +431,49 @@ class GDS_Wristband_List_Table extends WP_List_Table {
 
         $the_query = "SELECT * FROM $wpdb->wristbands";
 
+        /* Check for staus */
+        $status = isset( $status_map[$wristband_status] ) ? $status_map[$wristband_status] : $wristband_status;
+
+        $has_where = false;
+        if(is_bool($status) ) {
+            $the_query .= " WHERE approved = '".$status. "'" ;
+            $has_where = true;
+
+        }
+
+        /*add search */
+        if($search != '') {
+            if ($has_where) {
+                $s_prefix = " AND ( ";
+                $s_sufix = " )";
+
+            }
+            else {
+                $s_prefix = " WHERE ";
+                $s_sufix = "";
+            } 
+
+            $the_query .= $s_prefix.  "ID LIKE '%".$search."%' 
+                            OR wb_number LIKE '%".$search."%'
+                            OR chain_id LIKE '%".$search."%'
+                            OR story1 LIKE '%".$search."%'
+                            OR story2 LIKE '%".$search."%'
+                            OR city LIKE '%".$search."%'
+                            OR state LIKE '%".$search."%'
+                            OR country LIKE '%".$search."%'" . $s_sufix;
+        }
+
         /* Checks for sorting input */       
         
-        $orderby = (!empty($_REQUEST['orderby'])) ? $_REQUEST['orderby'] : 'ID'; 
-        $order = (!empty($_REQUEST['order'])) ? $_REQUEST['order'] : 'ASC';  
+        $orderby = (isset($_REQUEST['orderby'])) ? $_REQUEST['orderby'] : 'ID'; 
+        $order = (isset($_REQUEST['order'])) ? $_REQUEST['order'] : 'ASC';  
 
         $the_query .= " ORDER BY ". $orderby ." ". $order;
         
         /* Add pagination details */
 
-        $offset = ($current_page-1)*$per_page;
-        $the_query .= ' LIMIT ' .$per_page . ' OFFSET ' . $offset;
-
-
+        $offset = ($current_page-1)*$wristbands_per_page;
+        $the_query .= ' LIMIT ' . $wristbands_per_page . ' OFFSET ' . $offset;
 
         $wristbands = $wpdb->get_results($the_query);
         
@@ -267,10 +489,10 @@ class GDS_Wristband_List_Table extends WP_List_Table {
          */
         $this->set_pagination_args( array(
             'total_items' => $total_items,                  
-            'per_page'    => $per_page,                    
-            'total_pages' => $total_pages  
+            'per_page'    => $wristbands_per_page,
         ) );
     }
+
     
 }
 
