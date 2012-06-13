@@ -314,8 +314,9 @@ function gds_add_chains() {
 					<option value="<?php echo $user->ID?>"><?php echo $user->user_nicename?></option>
             		
             	<?php } ?>
-            	
+            </select>	
             <input type="submit" class="button-primary" value="Create">
+        </form>
        
 	</div>
 <?php

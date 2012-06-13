@@ -1,5 +1,9 @@
 <?php 
-// used in admin to create the chains
+
+/****************************************************************************/
+/* Chains 
+/****************************************************************************/
+
 function gds_add_chain($corporate_id = false){
 
 		global $wpdb;
@@ -22,11 +26,156 @@ function gds_add_chain($corporate_id = false){
 
 		$chain_id = $wpdb->insert_id;
 
-		return($chain_id);
-		
+		return($chain_id);	
 }
 
-// used to add a wristband
+function gds_update_chain_corporate($chain_id, $corporate_id) {
+		global $wpdb;
+		$t_name = $wpdb->prefix . "chains" ;
+		$wpdb->update($t_name, 
+				array( 
+					'corporate_id' => $corporate_id
+				), 
+				array( 'ID' => $chain_id ), 
+				array( 
+					'%d'
+				), 
+				array( '%d' ) 
+			);
+}
+
+function gds_add_n_chains($number, $corporate_id = false ) {
+	while ($number > 0 ):
+		gds_add_chain($corporate_id);
+		$number--; 
+	endwhile;
+}
+
+function gds_update_chain($args) {
+	global $wpdb;
+
+	extract($args);
+
+	$t_name = $wpdb->prefix . "chains" ;
+	$wpdb->update($t_name, 
+			array(  'corporate_id' => $corporate_id,
+                    'parent_id' => $parent_id,
+                    'active' => $active
+			), 
+			array( 'ID' => $ID )			
+		);
+}
+
+function gds_start_chain( $args ) {
+		
+		global $wpdb;
+		extract($args);
+		$is_branch = isset($parent_id) ? $parent_id : 0;
+
+
+
+		$result = $wpdb->get_row( $wpdb->prepare( "	SELECT *
+													FROM $wpdb->chains 
+													WHERE ID = %d 
+													AND passcode = %s
+												", 
+												$chain_id, 
+												$passcode
+											) );
+		
+		if($result) { //if the chain exists and passcode is ok
+
+			if ($result->leader_id != 0 ) {
+				return "Seems this chain already has a leader";
+				exit;
+			}
+
+			$current_user = wp_get_current_user();
+			$leader_id = $current_user->ID;
+			
+			
+			if($is_branch) {
+
+				$chain_update_array = array( 
+								'parent_id' => $parent_id,
+								'leader_id' => $leader_id
+							);
+			}
+			else {
+				$chain_update_array = array( 
+								'leader_id' => $leader_id
+							);
+			}
+
+			// update chain 
+			$t_name = $wpdb->prefix . "chains" ;
+			$wpdb->update( $t_name,  
+							$chain_update_array ,
+							array( 'ID' => $chain_id )
+						);
+
+
+			// add the first wristband
+			$wb_args = array('wb_number'=> 1, 
+						'chain_id' => $chain_id,
+						'user_id' => $leader_id,
+						'story1' => $story1,
+						'story2' => $story2,
+						'city' => $city,
+						'state' => $state,
+						'country' => $country
+						);
+			$add_wb = gds_add_wristband($wb_args);
+
+			if(is_bool($add_wb) && ($add_wb)) {
+				return true;
+			} else {
+				return "Seems this chain was already started. Check the information again, or try contacting us.";
+			}
+		}
+		else { 	//chain with these details does not exist
+			return 'Combination id/passcode is incorrect. Please check them and try again';
+		}
+}
+
+function gds_set_chain_active_status($id, $status) {
+	global $wpdb;
+
+	$t_name = $wpdb->prefix . "chains" ;
+	$upadted = $wpdb->update( $t_name,
+								array(
+									'active'=> $status
+									),
+								array( 'ID' => $id
+									)
+			);
+}
+
+function gds_get_chain_for_id($id) {
+	global $wpdb;	
+	$result = $wpdb->get_row( "SELECT * FROM $wpdb->chains WHERE ID = $id "	);
+	return $result;
+}
+
+function gds_get_chain_corporate_id($chain_id) {
+	global $wpdb;
+	$result = $wpdb->get_col( $wpdb->prepare("SELECT corporate_id FROM $wpdb->chains WHERE ID = %d ", $chain_id));
+
+	return (int)$result[0];
+}
+
+function gds_get_chain_parent_id($chain_id) {
+	global $wpdb;
+	$result = $wpdb->get_col( $wpdb->prepare("SELECT parent_id FROM $wpdb->chains WHERE ID = %d ", $chain_id));
+
+	return (int)$result[0];
+}
+
+
+/****************************************************************************/
+/* Wristbands
+/****************************************************************************/
+
 function gds_add_wristband($args){
 	global $wpdb;
 
@@ -63,104 +212,6 @@ function gds_add_wristband($args){
 	else {
 		return true;
 	}
-
-}
-
-function gds_update_chain_corporate($chain_id, $corporate_id) {
-		global $wpdb;
-		$t_name = $wpdb->prefix . "chains" ;
-		$wpdb->update($t_name, 
-				array( 
-					'corporate_id' => $corporate_id
-				), 
-				array( 'ID' => $chain_id ), 
-				array( 
-					'%d'
-				), 
-				array( '%d' ) 
-			);
-}
-
-function gds_update_chain($args) {
-	global $wpdb;
-
-	extract($args);
-
-	$t_name = $wpdb->prefix . "chains" ;
-	$wpdb->update($t_name, 
-			array(  'corporate_id' => $corporate_id,
-                    'parent_id' => $parent_id,
-                    'active' => $active
-			), 
-			array( 'ID' => $ID )			
-		);
-}
-
-// used when a user starts a chain 
-// returns true if successfull, error message if not
-function gds_start_chain( $args ) {
-		
-		global $wpdb;
-		extract($args);
-
-		$result = $wpdb->get_row( $wpdb->prepare( "	SELECT *
-													FROM $wpdb->chains 
-													WHERE ID = %d 
-													AND passcode = %s
-												", 
-												$chain_id, 
-												$passcode
-											) );
-		
-		if($result) { //if the chain exists and passcode is ok
-
-			$current_user = wp_get_current_user();
-			$leader_id = $current_user->ID;
-			
-			
-			if($parent_id) {
-				// update both parent chain and chain leader
-				$t_name = $wpdb->prefix . "chains" ;
-				$wpdb->update( $t_name, 
-							array( 
-								'parent_id' => $parent_id,
-								'leader_id' => $leader_id
-							), 
-							array( 'ID' => $chain_id ), 
-							array( 
-								'%d',
-								'%d'
-							), 
-							array( '%d' ) 
-						);
-
-
-			}
-			else {
-				//update only the chain leader
-				gds_update_chain_leader($chain_id, $leader_id);
-			}
-
-			// add the first wristband
-			$wb_args= array('wb_number'=> 1, 
-						'chain_id' => $chain_id,
-						'user_id' => $leader_id,
-						'story1' => $story1,
-						'story2' => $story2,
-						'city' => $city,
-						'state' => $state,
-						'country' => $country
-						);
-			gds_add_wristband($wb_args);
-
-			return true;
-		}
-		else { 	//chain with these details does not exist
-			$error = "Combination id/passcode is incorrect. Please check them and try again";
-
-			return $error;
-		}
-
 }
 
 function gds_update_wristband($args){
@@ -169,7 +220,7 @@ function gds_update_wristband($args){
 	
 	$t_name = $wpdb->prefix . "wristbands" ;
 	
-	$wpdb->update( $t_name,
+	$result = $wpdb->update( $t_name,
 					array(
 						'story1' => $story1,
 						'story2' => $story2,
@@ -180,15 +231,8 @@ function gds_update_wristband($args){
 						),
 					array( 'ID' => $ID 
 						)
-				);
-
-}
-
-function gds_add_n_chains($number, $corporate_id = false ) {
-	while ($number > 0 ):
-		gds_add_chain($corporate_id);
-		$number--; 
-	endwhile;
+				);	
+	return $result;
 }
 
 function gds_set_wristband_status($id, $status) {
@@ -202,23 +246,7 @@ function gds_set_wristband_status($id, $status) {
 								array( 'ID' => $id
 									)
 			);
-
 }
-
-function gds_set_chain_active_status($id, $status) {
-	global $wpdb;
-
-	$t_name = $wpdb->prefix . "chains" ;
-	$upadted = $wpdb->update( $t_name,
-								array(
-									'active'=> $status
-									),
-								array( 'ID' => $id
-									)
-			);
-
-}
-
 
 function gds_delete_wristband($id) {
 	global $wpdb;
@@ -228,24 +256,321 @@ function gds_delete_wristband($id) {
 		 									WHERE ID = %d",
 	        								$id ));
 	var_dump($delete);
-
 }
 
 function gds_get_wristband_for_id($id) {
 	global $wpdb;	
-	$result = $wpdb->get_row( "SELECT * FROM $wpdb->wristbands WHERE ID = $id "	);
+	$result = $wpdb->get_row( $wpdb->prepare("SELECT * FROM $wpdb->wristbands WHERE ID = %d", $id));
 
 	return $result;
-
 }
 
-function gds_get_chain_for_id($id) {
+function gds_get_wristbands_for_chain($chain_id) {
 	global $wpdb;	
-	$result = $wpdb->get_row( "SELECT * FROM $wpdb->chains WHERE ID = $id "	);
+	$result = $wpdb->get_results(  $wpdb->prepare(" SELECT * FROM $wpdb->wristbands 
+												WHERE chain_id = %d
+												AND approved = %s
+												ORDER BY wb_number ASC"
+												, $chain_id , true ));
 
 	return $result;
-
 }
 
+
+/****************************************************************************/
+/* Users
+/****************************************************************************/
+
+function gds_user_pretty_name($id) {
+	$user = get_user_by('id', $id);
+	$name = $user->first_name . ' ' . $user->last_name;
+	return $name;
+}
+
+function gds_user_has_branch($user_id, $chain_id) {
+	global $wpdb;	
+	$result = $wpdb->get_col(  $wpdb->prepare(" SELECT ID FROM $wpdb->chains 
+												WHERE leader_id = %d
+												AND parent_id = %d"
+												, $user_id , $chain_id ));
+	return $result;
+}
+
+/****************************************************************************/
+/* Shortcodes 
+/****************************************************************************/
+
+function gds_start_form() {
+	include dirname( __FILE__ ) . '/users/start_form.php';
+}
+add_shortcode( 'gds-start-form', 'gds_start_form' );
+
+
+function gds_continue_form() {
+	include dirname( __FILE__ ) . '/users/continue_form.php';
+}
+add_shortcode( 'gds-continue-form', 'gds_continue_form' );
+
+function gds_branch_form() {
+	include dirname( __FILE__ ) . '/users/branch_form.php';
+}
+add_shortcode( 'gds-branch-form', 'gds_branch_form' );
+
+function gds_edit_form() {
+	include dirname( __FILE__ ) . '/users/edit_form.php';
+}
+add_shortcode( 'gds-edit-form', 'gds_edit_form' );
+
+function gds_display_my_wristbands(){
+	global $wpdb;
+
+	$current_user = wp_get_current_user();
+	$my_id = $current_user->ID;
+
+	//find all wristbands for a current user
+	$wristbands = $wpdb->get_results(  $wpdb->prepare(" SELECT * FROM $wpdb->wristbands 
+												WHERE user_id = %d
+												ORDER BY ID DESC" , $my_id ));
+	if($wristbands) {	?>
+		<div class="chain-container">
+			<ul class="chain-list">
+				<?php
+				foreach ($wristbands as $wristband) { ?>
+					<li>
+						<div class="chain">
+							<div class= "chain-meta">
+								<?php
+								if ($wristband->wb_number == 1) {?>
+									 <span> You <strong>started</strong> the Chain with id <?php echo $wristband->chain_id;?></span>
+								<?php
+								} else { ?>
+									 <span> You <strong>continued</strong> the Chain with id <?php echo $wristband->chain_id;?> with Wristband #<?php echo $wristband->wb_number;?></span>					
+								<?php
+								} ?>
+								<a href="<?php echo get_bloginfo('url');?>/chains/<?php echo $wristband->chain_id;?>" style="float: right;">View Chain &rarr;</a>
+								<?php
+								if ($wristband->approved == false) {?>
+									 <p style="margin: 5px 0 0; font-size: 14px; color: #F05A5A;"><em> Your story is awaiting approval. It is only visible to you </em></p>
+								<?php
+								}  ?>
+							</div>
+							<div class="chain-info clearfix">
+								<p>Location: <?php echo $wristband->city; ?>, <?php echo $wristband->state; ?>, <?php echo $wristband->country; ?></p>
+								<h3>Good Deed</h3>
+								<p><?php echo $wristband->story1; ?></p>
+								<h3>What I Want to Share</h3>
+								<p><?php echo $wristband->story2; ?></p>
+								<p><a href="<?php echo get_bloginfo('url');?>/your-chains/edit-chain/<?php echo $wristband->ID;?>" class="button" style="float: right;">Edit</a></p>
+							</div>
+						</div>
+					</li>
+					<?php
+				} //for each ?>
+			</ul>
+      	</div>
+	<?php 
+	}
+	else {
+		echo '<p>You have no activity yet.</p>';
+	}
+}
+add_shortcode('gds-display-my-wristbands', 'gds_display_my_wristbands');
+
+function gds_display_single_chain(){
+	$chain_id = (int)get_query_var('chain_id');
+
+	if($chain_id != 0) {
+		echo gds_single_chain_view($chain_id);
+	}
+	else {
+		echo gds_claimed_chain_ids_dropdown(); ?>
+		<a class="button" id="show-chain" href="<?php echo get_bloginfo('url');?>/chains">Show Chain</a>
+	<?php 
+	}
+}
+add_shortcode('gds-display-single-chain', 'gds_display_single_chain');
+
+
+/****************************************************************************/
+/* Other form elements 
+/****************************************************************************/
+
+function gds_single_chain_view($chain_id) {
+	$wristbands = gds_get_wristbands_for_chain($chain_id); 
+	if($wristbands) {
+		$first_wristband = $wristbands[0];
+		$nb_wb = count($wristbands);
+
+		$output = '';
+		$output .= '<h1>Chain '.$chain_id.' </h1>';
+		$output .= '<div class="chain-container">';
+		
+
+		// check if chain is assigned to corporate and display logo if necessary
+
+		$corporate_id = gds_get_chain_corporate_id($chain_id);
+		if($corporate_id != 0 ) {
+			$corporate_logo_url = get_cimyFieldValue($corporate_id, 'LOGO');
+			if ($corporate_logo_url) {
+				$output .= '<img src="'.$corporate_logo_url.'" />';
+			}
+		}
+
+		// check if chain has a parent
+
+		$parent_id = gds_get_chain_parent_id($chain_id);
+		if($parent_id != 0 ) {
+			$output .='<a href="'.get_bloginfo('url').'/chains/'.$parent_id.'">This Chain is a branch. View Parent Chain.</a>';
+		}
+
+		$output .= '<ul class="chain-list">';
+		$first_wristband = $wristbands[0];					
+		$output .= '<li class= "first last">';
+
+			//first wristband
+
+			$output .='<div class="chain">';
+				$output .='<div class="chain-meta">';
+					$output .='<span class="name">'. gds_user_pretty_name($first_wristband->user_id).'</span> - <span class="location">'. $first_wristband->city .', '. $first_wristband->state .', '. $first_wristband->country .'</span>';
+				$output .='</div>';
+				$output .='<div class="chain-info">';
+					$output .='<h3>Good Deed</h3>';
+					$output .='<p>'. $first_wristband->story1 . '</p>';
+					$output .='<h3>What I Want to Share</h3>';
+					$output .='<p>'. $first_wristband->story2 . '</p>';
+				$output .='</div>';
+			$output .='</div>';
+
+			//the other wristbands
+
+			if($nb_wb > 1) {
+				$output .='<ul>';	
+
+				for( $i=1 ; $i<$nb_wb ; $i++) { 
+					$output .='<li>';
+						$output .='<div class="chain">';
+							$output .='<div class="chain-meta">';
+								$output .= gds_user_pretty_name($wristbands[$i]->user_id).'</span> - <span class="location">'. $wristbands[$i]->city .', '. $wristbands[$i]->state .', '. $wristbands[$i]->country .'</span>';
+								$output .='<a href="#" class="back-top">back to top</a>';
+							$output .='	</div>';
+							$output .='<div class="chain-info">';
+								$output .='<h3>Good Deed</h3>';
+								$output .='<p>'. $wristbands[$i]->story1.'</p>';
+								$output .='<h3>What I Want to Share</h3>';
+								$output .='<p>'. $wristbands[$i]->story2 .'</p>';
+							$output .='</div>';
+						$output .='</div>';
+				
+					$branches = gds_user_has_branch($wristbands[$i]->user_id, $chain_id);
+					if($branches) {
+						foreach ($branches as $branch) {
+							$output .='<ul>';
+								$output .='<li>';
+									$output .='<div class="chain">';
+										$output .='<a href="'.get_bloginfo('url').'/chains/'.$branch.'">';
+											$output .='<p>This user has created a branch. Click to view </p>';
+										$output .='</a>';
+									$output .='</div>';
+								$output .='</li>';
+							$output .='</ul>';
+						}
+						
+					} //is branched	
+
+					$output .='</li>';
+				} //for
+
+				$output .='</ul>';
+			}
+			
+		$output .='</li>';
+		$output .='</ul>';
+		$output .='</div>';
+	}
+	else $output = "This chain does not exist, has not been claimed yet or is waiting approval.";
+
+	return $output;
+}
+
+function gds_chain_ids_dropdown($name = false, $label = false) {
+	global $wpdb;
+	$select_name = ($name) ? $name : 'chain_id';
+	$select_label = ($label) ? $label : 'Choose a chain ID';
+
+	$chain_ids = $wpdb->get_results( " SELECT ID FROM $wpdb->chains 
+										WHERE active = true " );
+	$output .= '<label for="chain_id">'.$select_label.'</label>';
+	$output .= '<select name="'.$select_name.'" id="'.$select_name.'">';
+	$output .= '<option value= "0" > None </option>';
+	foreach ($chain_ids as $chain_id) {
+
+		$output .= '<option value="'.$chain_id->ID.'">'.$chain_id->ID.'</option>';
+	}
+	$output .= '</select>';
+
+	return $output;
+}
+
+function gds_claimed_chain_ids_dropdown($name = false, $label = false) {
+	global $wpdb;
+	$select_name = ($name) ? $name : 'chain_id';
+	$select_label = ($label) ? $label : 'Choose a chain ID';
+
+	$chain_ids = $wpdb->get_results( " SELECT c.ID FROM $wpdb->chains c
+										INNER JOIN $wpdb->wristbands w
+										ON  c.ID = w.chain_id
+										WHERE c.active = true 
+										GROUP BY c.ID
+										" );
+	$output .= '<label for="chain_id">'.$select_label.'</label>';
+	$output .= '<select name="'.$select_name.'" id="'.$select_name.'">';
+	$output .= '<option value= "0" > None </option>';
+	foreach ($chain_ids as $chain_id) {
+
+		$output .= '<option value="'.$chain_id->ID.'">'.$chain_id->ID.'</option>';
+	}
+	$output .= '</select>';
+
+	return $output;
+}
+
+/****************************************************************************/
+/* Rewite rules 
+/****************************************************************************/
+
+add_filter( 'rewrite_rules_array','gds_insert_rewrite_rules' );
+add_filter( 'query_vars','gds_insert_query_vars' );
+add_action( 'wp_loaded','gds_flush_rules' );
+
+// flush_rules() if our rules are not yet included
+function gds_flush_rules(){
+	$rules = get_option( 'rewrite_rules' );
+
+	if ( ! isset( $rules['(chains)/(\d*)$'] ) ) {
+		global $wp_rewrite;
+	   	$wp_rewrite->flush_rules();
+	}
+
+	if ( ! isset( $rules['your-chains/edit-chain/(\d*)$'] ) ) {
+		global $wp_rewrite;
+	   	$wp_rewrite->flush_rules();
+	}
+}
+
+// Adding a new rule
+function gds_insert_rewrite_rules( $rules ) {
+	$editpage= get_page_by_title( 'Edit Chain' );
+	$edit_id = $editpage->ID;
+	$newrules = array();
+	$newrules['(chains)/(\d*)$'] = 'index.php?pagename=$matches[1]&chain_id=$matches[2]';
+	$newrules['your-chains/edit-chain/(\d*)$'] = 'index.php?page_id='.$edit_id.'&wristband_id=$matches[1]';
+	return $newrules + $rules;
+}
+
+// Adding the id var so that WP recognizes it
+function gds_insert_query_vars( $vars ) {
+    array_push($vars, 'chain_id', 'wristband_id');
+    return $vars;
+}
 
 ?>

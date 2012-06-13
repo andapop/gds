@@ -36,7 +36,7 @@ function gds_init() {
 		story1 text NOT NULL,
 		story2 text NOT NULL,
 		city varchar(30) DEFAULT '' NOT NULL,
-		state varchar(3) DEFAULT '' NOT NULL, 
+		state varchar(20) DEFAULT '' NOT NULL, 
 		country varchar(20) DEFAULT '' NOT NULL,
 		approved bool DEFAULT '0' NOT NULL,
 		PRIMARY KEY  (ID),
@@ -62,9 +62,18 @@ function gds_init() {
 		$dir = plugin_dir_url( __FILE__ );
 
 		wp_enqueue_style( 'gds_style',  $dir .'gds.css' , '', '1.0' );
-		wp_enqueue_script( 'gds_confirm_delete',  $dir . '/admin/js/confirm_delete.js' , array('jquery'), '0.1', true );
-		wp_enqueue_script( 'gds_show_select_ids',  $dir . '/admin/js/show_corporate_id.js' ,array('jquery'), '0.1', true );
+		wp_enqueue_script( 'gds_confirm_delete',  $dir . 'admin/js/confirm_delete.js' , array('jquery'), '0.1', true );
+		wp_enqueue_script( 'gds_show_select_ids',  $dir . 'admin/js/show_corporate_id.js' ,array('jquery'), '0.1', true );
 	}
+
+	add_action('template_redirect', 'my_user_enqueues');
+	function my_user_enqueues() {
+		
+		$dir = plugin_dir_url( __FILE__ );
+
+		wp_enqueue_script( 'gds_user_init',  $dir . 'users/js/init.js' ,array('jquery'), '0.1', true );
+	}
+
 
 	
 
