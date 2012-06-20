@@ -52,6 +52,7 @@ class GDS_Wristband_List_Table extends WP_List_Table {
             case 'user':
             case 'stories':
             case 'approved':
+            case 'date_claimed':
                 return $wristband->$column_name;
             default:
                 return print_r($wristband,true); //Show the whole array for troubleshooting purposes
@@ -126,7 +127,7 @@ class GDS_Wristband_List_Table extends WP_List_Table {
 
     function column_wb_number($wristband){
         //Return the Wristband # and id
-        return sprintf('%1$s<span style="color:silver"> (id: %2$s)</span>',
+        return sprintf('%1$s<span class="silver"> (id: %2$s)</span>',
             /*$1%s*/ $wristband->wb_number,
             /*$2%s*/ $wristband->ID
         );
@@ -138,7 +139,7 @@ class GDS_Wristband_List_Table extends WP_List_Table {
         $user = get_user_by('id', $wristband->user_id);
 
         //Return the Wristband # and id
-        return sprintf('%1$s <span style="color:silver">(id: %2$s)</span><p class="location"><span style="color:silver">From: </span><br />%3$s, %4$s <br /> %5$s</p>',
+        return sprintf('%1$s <span class="silver">(id: %2$s)</span><p class="location"><span class="silver">From: </span><br />%3$s, %4$s <br /> %5$s</p>',
             /*$1%s*/ $user->user_nicename,
             /*$2%s*/ $wristband->user_id,
             /*$3%s*/ $wristband->city, 
@@ -184,7 +185,8 @@ class GDS_Wristband_List_Table extends WP_List_Table {
             'chain_id'    => 'Chain ID',
             'user'  => 'Added by',
             'stories'  => 'Stories',
-            'approved' => 'Is Approved'
+            'approved' => 'Is Approved',
+            'date_claimed' => 'Date Claimed'
         );
         return $columns;
     }
@@ -197,7 +199,8 @@ class GDS_Wristband_List_Table extends WP_List_Table {
     function get_sortable_columns() {
         $sortable_columns = array(
             'wb_number' => array('ID', true),     //true means its already sorted
-            'chain_id' => array('chain_id', false)
+            'chain_id' => array('chain_id', false),
+            'date_claimed' => array('date_claimed', false)
         );
         return $sortable_columns;
     }
@@ -390,6 +393,8 @@ class GDS_Wristband_List_Table extends WP_List_Table {
                             OR country LIKE '%".$search."%'" . $s_sufix;
         }
 
+        $total_items_query = $the_query;
+
         /* Checks for sorting input */       
         
         $orderby = (isset($_REQUEST['orderby'])) ? $_REQUEST['orderby'] : 'ID'; 
@@ -414,8 +419,10 @@ class GDS_Wristband_List_Table extends WP_List_Table {
         /**
          * REQUIRED. Register pagination options & calculations.
          */
+
+        $total_wristbands = $wpdb->get_results($total_items_query);
         $this->set_pagination_args( array(
-            'total_items' => $total_items,                  
+            'total_items' => count($total_wristbands),                  
             'per_page'    => $wristbands_per_page,
         ) );
     }

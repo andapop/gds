@@ -39,8 +39,8 @@ if (isset($_POST['continuechain'])) {
 		    <?php echo gds_chain_ids_dropdown(); ?>
 		</li>
 		<li>
-		    <label for="wb_number">Wristband Number</label>
-			<input name="wb_number" id="wb_number" type="text" required value="<?php echo isset($_POST['wb_number'] )? $_POST['wb_number'] : ''; ?>" />
+		    <label for="wb_number">Wristband Number</label>		    
+			<input name="wb_number" id="wb_number" type="number" required value="<?php echo isset($_POST['wb_number'] )? $_POST['wb_number'] : ''; ?>" />
 		</li>
 		<li>
 			<label for="city">City</label>

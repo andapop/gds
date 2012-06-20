@@ -211,12 +211,12 @@ class GDS_Chain_List_Table extends WP_List_Table {
         global $chain_status;
 
         $actions = array();
-        if ( in_array( $chain_status, array( 'all', 'active' ) ) )
+        if ( in_array( $chain_status, array( 'all', 'active','notexported', 'exported' ) ) )
             $actions['deactivate'] = __( 'Deactivate' );               
-        if ( in_array( $chain_status, array( 'all', 'inactive' ) ) )
+        if ( in_array( $chain_status, array( 'all', 'inactive', 'notexported', 'exported' ) ) )
             $actions['activate'] = __( 'Activate' );
-        if ( in_array( $chain_status, array( 'all','active','notexported' ) ) )
-            $actions['export'] = __( 'Export' );
+        /*if ( in_array( $chain_status, array( 'all','active','notexported' ) ) )
+            $actions['export'] = __( 'Export' );*/
         $actions['assign_corporate'] = __( 'Assign Corporate Account' );
         
         return $actions;
@@ -325,12 +325,7 @@ class GDS_Chain_List_Table extends WP_List_Table {
             'exported' => 4  //exported chains
         );
 
-        /**
-         * REQUIRED for pagination. 
-         */
-        $current_page = $this->get_pagenum();
-        $total_items = intval ($wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM $wpdb->chains ")) );         
-        //$total_pages = ceil($total_items/$chains_per_page);       
+               
         
         
         /**
@@ -347,6 +342,7 @@ class GDS_Chain_List_Table extends WP_List_Table {
         $this->_column_headers = array($columns, $hidden, $sortable);
         
         
+        $current_page = $this->get_pagenum();
         
         /**
         * Start constructing the query for the data that will be displayed  
@@ -390,13 +386,14 @@ class GDS_Chain_List_Table extends WP_List_Table {
                             OR date_exported LIKE '%".$search."%'". $s_sufix;
         }
 
-
+        $total_items_query = $the_query;
         /* Checks for sorting input */       
         
         $orderby = (!empty($_REQUEST['orderby'])) ? $_REQUEST['orderby'] : 'ID'; 
         $order = (!empty($_REQUEST['order'])) ? $_REQUEST['order'] : 'DESC';  
 
         $the_query .= " ORDER BY ". $orderby ." ". $order;
+
         
         /* Add pagination details */
 
@@ -418,8 +415,10 @@ class GDS_Chain_List_Table extends WP_List_Table {
         /**
          * REQUIRED. Register pagination options & calculations.
          */
+        $total_chains = $wpdb->get_results($total_items_query);
+
         $this->set_pagination_args( array(
-            'total_items' => $total_items,                  
+            'total_items' => count($total_chains),                  
             'per_page'    => $chains_per_page 
         ) );
     }
@@ -427,7 +426,7 @@ class GDS_Chain_List_Table extends WP_List_Table {
     function show_select_corporate_id() {
        
         //will change this to only choose corporate users
-        $users = get_users(); 
+        $users = get_users(array('role' => 'corporate')); 
         ?>
 
         <select name="assign_corporate_id" id="assign_corporate_id" style="display: none;" >

@@ -1,0 +1,9 @@
+.chain-meta .attention {
+	margin: 5px 0 0;
+	font-size: 14px;
+	color: #F05A5A;
+}
+
+.chain-meta .right, .chain-info .right {
+	float: right;
+}

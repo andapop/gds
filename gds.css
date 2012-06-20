@@ -1,10 +1,13 @@
 .wristbands .row-actions, .chains .row-actions {
 	padding-bottom: 10px;
 }
-.fixed .column-wb_number , .fixed.wristbands .column-approved{
+.fixed .column-wb_number , .fixed.wristbands .column-approved {
 	width: 8%;
 }
-.fixed.wristbands .column-user{
+.fixed .column-date_claimed {
+	width: 9%;
+}
+.fixed.wristbands .column-user {
 	width: 10%;
 }
 
@@ -18,7 +21,7 @@
 	background-color: lightYellow;
 }
 
-.chain.inactive td{
+.chain.inactive td {
 	color: silver;
 }
 
@@ -26,7 +29,11 @@
 	display: none;
 }
 
-.misc-publishing-actions .export_status{
+.misc-publishing-actions .export_status {
 	padding: 0 20px;
 	font-style: italic;
+}
+
+.silver {
+	color: silver;
 }

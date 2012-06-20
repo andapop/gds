@@ -39,6 +39,7 @@ function gds_init() {
 		state varchar(20) DEFAULT '' NOT NULL, 
 		country varchar(20) DEFAULT '' NOT NULL,
 		approved bool DEFAULT '0' NOT NULL,
+		date_claimed datetime DEFAULT '0000-00-00 00:00:00' NOT NULL,
 		PRIMARY KEY  (ID),
  		UNIQUE KEY wb_number_chain_id (wb_number,chain_id),
  		KEY wb_number (wb_number),
@@ -53,6 +54,7 @@ function gds_init() {
 	require_once dirname( __FILE__ ) . '/admin/chains_list_table.php';
 	require_once dirname( __FILE__ ) . '/admin/wristbands.php';
 	require_once dirname( __FILE__ ) . '/admin/wristbands_list_table.php';
+	require_once dirname( __FILE__ ) . '/admin/export.php';
 
 	
 	add_action( 'admin_init', 'my_enqueues' );
@@ -64,6 +66,7 @@ function gds_init() {
 		wp_enqueue_style( 'gds_style',  $dir .'gds.css' , '', '1.0' );
 		wp_enqueue_script( 'gds_confirm_delete',  $dir . 'admin/js/confirm_delete.js' , array('jquery'), '0.1', true );
 		wp_enqueue_script( 'gds_show_select_ids',  $dir . 'admin/js/show_corporate_id.js' ,array('jquery'), '0.1', true );
+		wp_enqueue_script( 'gds_confirm_export',  $dir . 'admin/js/confirm_export.js' ,array('jquery'), '0.1', true );
 	}
 
 	add_action('template_redirect', 'my_user_enqueues');
@@ -72,6 +75,7 @@ function gds_init() {
 		$dir = plugin_dir_url( __FILE__ );
 
 		wp_enqueue_script( 'gds_user_init',  $dir . 'users/js/init.js' ,array('jquery'), '0.1', true );
+		wp_enqueue_style( 'gds_front_end_style',  $dir .'users/front-end.css' , '', '1.0' );
 	}
 
 
